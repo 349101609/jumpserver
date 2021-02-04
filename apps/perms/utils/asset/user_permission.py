@@ -196,9 +196,11 @@ class UserGrantedTreeRefreshController:
             ret = p.execute()
             builded_orgs_id = {org_id.decode() for org_id in ret[0]}
             ids = orgs_id - builded_orgs_id
-            orgs = list(Organization.objects.filter(id__in=ids))
+            orgs = []
             if Organization.DEFAULT_ID in ids:
+                ids.remove(Organization.DEFAULT_ID)
                 orgs.append(Organization.default())
+            orgs.extend(Organization.objects.filter(id__in=ids))
             logger.info(f'Need rebuild orgs are {orgs}, builed orgs are {ret[0]}, all orgs are {orgs_id}')
             return orgs
 
