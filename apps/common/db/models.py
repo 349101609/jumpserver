@@ -10,6 +10,7 @@
 """
 
 import uuid
+from functools import reduce, partial
 
 from django.db.models import *
 from django.db.models.functions import Concat
@@ -82,3 +83,60 @@ class JMSModel(JMSBaseModel):
 
 def concated_display(name1, name2):
     return Concat(F(name1), Value('('), F(name2), Value(')'))
+
+
+class UnionQueryset:
+    before_union = ['filter', 'only', 'prefetch_related', 'select_related']
+
+    def __init__(self, querysets):
+        self.querysets = querysets
+
+    @property
+    def output(self):
+        return reduce(lambda x, y: x.union(y), self.querysets)
+
+    def _clone(self, querysets=None):
+        if querysets is None:
+            querysets = self.querysets
+        return self.__class__(querysets)
+
+    def before_do(self, item, *args, **kwargs):
+        qs_cleaned = []
+        for q in self.querysets:
+            qs_cleaned.append(getattr(q, item)(*args, **kwargs))
+        return self._clone(qs_cleaned)
+
+    def __getattr__(self, item):
+        if item in self.before_union:
+            return partial(self.before_do, item)
+        return getattr(self.output, item)
+
+    def __getitem__(self, item):
+        return self.output[item]
+
+    def __next__(self):
+        return next(self.output)
+
+    @classmethod
+    def test_it(cls):
+        from assets.models import Asset
+        hostname1 = [
+            'albert.riffpath.org-176.227.174.69',
+            'alice.abata.biz-51.8.18.241',
+            'alice.abata.com-130.74.130.44',
+            'alice.abata.edu-140.213.66.75'
+        ]
+        assets1 = Asset.objects.filter(hostname__in=hostname1)
+
+        hostname2 = [
+            'alice.abata.info-191.220.224.49',
+            'alice.abata.info-255.114.84.19',
+            'alice.abata.info-68.65.133.217',
+            'alice.abata.mil-20.140.35.18',
+            'alice.abata.name-199.93.200.116',
+            'alice.abata.name-209.157.93.159',
+        ]
+        assets2 = Asset.objects.filter(hostname__in=hostname2)
+
+        qs = cls([assets1, assets2])
+        return qs

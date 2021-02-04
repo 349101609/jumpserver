@@ -1,3 +1,4 @@
+from functools import reduce
 from rest_framework.response import Response
 from rest_framework.request import Request
 
@@ -75,7 +76,15 @@ class UserGrantedNodeAssetsMixin:
         return assets
 
 
+from django.db.models import QuerySet
+
+
+
+
+
+
 # 控制格式的 ----------------------------------------------------
+
 
 class AssetsUnionQuerysetMixin:
     def get_queryset_union_prefer(self):
